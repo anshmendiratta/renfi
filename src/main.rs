@@ -1,10 +1,8 @@
-
 use app::App;
 use ratatui::prelude::{CrosstermBackend, Terminal};
 
 use anyhow::Result;
 
-mod ui;
 mod app;
 
 mod terminal_commands {
@@ -26,13 +24,12 @@ mod terminal_commands {
 fn main() -> Result<()> {
     terminal_commands::startup()?;
 
-    let mut terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let appstate = App {
-        items: Vec::from(["hello", "world" ,"list"]),
-        ..Default::default()
-    };
+    let terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
+    let appstate_items: Vec<&str> = Vec::from(["hello", "world", "list"]);
+    let appstate = &mut App::default();
+    appstate.items = appstate_items;
 
-    ui::draw_list(&mut terminal, &appstate)?;
+    appstate.run(terminal)?;
 
     terminal_commands::shutdown()
 }
