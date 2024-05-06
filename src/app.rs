@@ -1,11 +1,18 @@
+use ratatui::{
+    layout::{Constraint, Direction, Flex, Layout},
+    prelude::{Buffer, Rect},
+    style::Color,
+};
 use std::default;
 
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
     backend::Backend,
-    widgets::{ListState, Widget},
+    widgets::{ListState, Paragraph, Widget},
     Terminal,
 };
+
+use ratatui::style::Stylize;
 
 use anyhow::Result;
 
@@ -15,7 +22,7 @@ pub struct App<'a> {
     pub items: Vec<&'a str>,
 }
 
-impl<'a> default::Default for App<'a> {
+impl default::Default for App<'_> {
     fn default() -> Self {
         App {
             should_quit: false,
@@ -44,8 +51,35 @@ impl App<'_> {
     }
 
     pub fn draw(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
-        terminal.draw(|frame| frame.render_widget(self, frame.size()));
+        terminal.draw(|frame| frame.render_widget(self, frame.size()))?;
         Ok(())
+    }
+
+    pub fn render_title(&self, area: Rect, buf: &mut Buffer) {
+        Paragraph::new("HELLO WORLD")
+            .centered()
+            .bold()
+            .render(area, buf)
+    }
+
+    pub fn render_body(&self, area: Rect, buf: &mut Buffer) {
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        };
+        // TODO: Add flexbox spacing to body text
+        let layout = Layout::new(Direction::Vertical, [Constraint::Length(20)])
+            .flex(Flex::Center)
+            .split(rect);
+        let mut buf = Buffer::empty(area);
+
+        let body = Paragraph::new("BODY TEXT")
+            .bg(Color::White)
+            .fg(Color::Black);
+
+        body.render(area, &mut buf);
     }
 
     pub fn next_selection(&mut self) {
@@ -64,14 +98,20 @@ impl App<'_> {
         self.should_quit
     }
 
-    pub fn get_state(&self) -> ListState {
-        self.state
+    pub fn get_state(&self) -> &ListState {
+        &self.state
+    }
+}
+
+impl Widget for &App<'_> {
+    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+        self.render_title(area, buf);
     }
 }
 
 impl Widget for &mut App<'_> {
     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        self.render(area, buf)
+        self.render_title(area, buf);
     }
 }
 
