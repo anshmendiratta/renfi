@@ -1,9 +1,24 @@
-use app::App;
-use ratatui::prelude::{CrosstermBackend, Terminal};
-
 use anyhow::Result;
+use app::App;
+use ratatui::{
+    prelude::{CrosstermBackend, Terminal},
+    widgets::List,
+};
 
 mod app;
+
+fn main() -> Result<()> {
+    terminal_commands::startup()?;
+
+    let terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
+    let appstate_items: Vec<&str> = Vec::from(["list1", "list2", "list3"]);
+    let appstate = &mut App::default();
+    appstate.items = List::new(appstate_items);
+
+    appstate.run(terminal)?;
+
+    terminal_commands::shutdown()
+}
 
 mod terminal_commands {
     use anyhow::Result;
@@ -19,17 +34,4 @@ mod terminal_commands {
         crossterm::terminal::disable_raw_mode()?;
         Ok(())
     }
-}
-
-fn main() -> Result<()> {
-    terminal_commands::startup()?;
-
-    let terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let appstate_items: Vec<&str> = Vec::from(["hello", "world", "list"]);
-    let appstate = &mut App::default();
-    appstate.items = appstate_items;
-
-    appstate.run(terminal)?;
-
-    terminal_commands::shutdown()
 }

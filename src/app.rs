@@ -1,35 +1,27 @@
-use ratatui::{
-    layout::{Constraint, Direction, Flex, Layout},
-    prelude::{Buffer, Rect},
-    style::Color,
-};
-use std::default;
+use std::path::PathBuf;
 
+use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode};
+use itertools::Itertools;
+use ratatui::style::Stylize;
+use ratatui::widgets::StatefulWidget;
 use ratatui::{
     backend::Backend,
     widgets::{ListState, Paragraph, Widget},
     Terminal,
 };
+use ratatui::{
+    layout::{Constraint, Direction, Flex, Layout},
+    prelude::{Buffer, Rect},
+    widgets::List,
+};
+use renamefile_tui::{get_possible_file_names, rename_file_in_dir};
 
-use ratatui::style::Stylize;
-
-use anyhow::Result;
-
+#[derive(Default)]
 pub struct App<'a> {
     should_quit: bool,
     state: ListState,
-    pub items: Vec<&'a str>,
-}
-
-impl default::Default for App<'_> {
-    fn default() -> Self {
-        App {
-            should_quit: false,
-            state: ListState::default(),
-            items: Vec::new(),
-        }
-    }
+    pub items: List<'a>,
 }
 
 impl App<'_> {
@@ -39,9 +31,27 @@ impl App<'_> {
 
             if let Event::Key(key) = event::read()? {
                 match key.code {
+                    KeyCode::Esc => break,
                     KeyCode::Up => self.previous_selection(),
                     KeyCode::Down => self.next_selection(),
-                    KeyCode::Esc => break,
+                    KeyCode::Enter => {
+                        assert!(std::env::args().len() == 2);
+                        let [ref directory_of_rename_file, ref file_to_rename] =
+                            std::env::args().collect_vec()[0..=1]
+                        else {
+                            todo!("Can't match things");
+                        };
+                        let possible_file_names: Vec<String> =
+                            get_possible_file_names(&file_to_rename)?;
+                        let chosen_option_idx: usize = self.state.selected().unwrap_or(0);
+                        let chosen_file_name: &str = &possible_file_names[chosen_option_idx];
+
+                        rename_file_in_dir(
+                            PathBuf::from(directory_of_rename_file),
+                            file_to_rename.to_string(),
+                            chosen_file_name.to_string(),
+                        )?;
+                    }
                     _ => {}
                 }
             }
@@ -51,61 +61,42 @@ impl App<'_> {
     }
 
     pub fn draw(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
-        terminal.draw(|frame| frame.render_widget(self, frame.size()))?;
+        terminal.draw(|f| f.render_widget(self, f.size()))?;
         Ok(())
     }
 
     pub fn render_title(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::new("HELLO WORLD")
+        Paragraph::new("Rename file")
             .centered()
             .bold()
-            .render(area, buf)
+            .render(area, buf);
     }
 
-    pub fn render_body(&self, area: Rect, buf: &mut Buffer) {
-        let rect = Rect {
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-        };
-        // TODO: Add flexbox spacing to body text
-        let layout = Layout::new(Direction::Vertical, [Constraint::Length(20)])
-            .flex(Flex::Center)
-            .split(rect);
-        let mut buf = Buffer::empty(area);
+    // TODO: Make text area that auto selects upon <enter>
+    pub fn render_list(&self, area: Rect, buf: &mut Buffer) {
+        let layout =
+            Layout::new(Direction::Vertical, Constraint::from_fills([1])).flex(Flex::Center);
+        let [area] = layout.areas(area);
 
-        let body = Paragraph::new("BODY TEXT")
-            .bg(Color::White)
-            .fg(Color::Black);
-
-        body.render(area, &mut buf);
+        StatefulWidget::render(self.items.clone(), area, buf, &mut self.state.clone());
     }
 
     pub fn next_selection(&mut self) {
-        if let Some(result) = self.state.selected().unwrap_or(1).checked_add(1) {
-            self.state.select(Some(result))
-        }
+        let new_selection = self.state.selected().unwrap_or(1).saturating_add(1);
+        self.state.select(Some(new_selection));
     }
 
     pub fn previous_selection(&mut self) {
-        if let Some(result) = self.state.selected().unwrap_or(1).checked_sub(1) {
-            self.state.select(Some(result))
-        }
+        let new_selection = self.state.selected().unwrap_or(1).saturating_sub(1);
+        self.state.select(Some(new_selection));
     }
 
     pub fn should_quit(&self) -> bool {
         self.should_quit
     }
 
-    pub fn get_state(&self) -> &ListState {
+    pub fn state(&self) -> &ListState {
         &self.state
-    }
-}
-
-impl Widget for &App<'_> {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        self.render_title(area, buf);
     }
 }
 
@@ -117,19 +108,19 @@ impl Widget for &mut App<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::app::App;
 
     #[test]
     fn check_add() {
         let mut app = App::default();
         app.next_selection();
-        assert_eq!(app.get_state().selected(), Some(2));
+        assert_eq!(app.state().selected(), Some(2));
     }
 
     #[test]
     fn check_subtract() {
         let mut app = App::default();
         app.previous_selection();
-        assert_eq!(app.get_state().selected(), Some(0));
+        assert_eq!(app.state().selected(), Some(0));
     }
 }
