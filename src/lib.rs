@@ -1,71 +1,63 @@
-use anyhow::Result;
-use std::{
-    fs::{read_dir, DirEntry},
-    path::{Path, PathBuf},
-    process::Command,
-};
-
-pub fn get_possible_file_names(file_name: &str) -> Result<Vec<String>> {
-    let assignments_directory = Path::new("/Users/anshmendiratta/Desktop/assignments/");
-    let file_iter = read_dir(assignments_directory).unwrap();
-    let folders: Vec<DirEntry> = file_iter
-        .filter_map(|f| {
-            let file = f.unwrap();
-            let file_metadata = file.metadata().unwrap();
-            if file_metadata.is_dir() {
-                return Some(file);
-            }
-
-            None
-        })
-        .collect();
-
-    let possible_names = {
-        let mut result: Vec<String> = Vec::new();
-        for name_prefix in folders {
-            let name_prefix_path = name_prefix.path().into_os_string().into_string();
-            assert!(name_prefix_path.is_ok());
-            let name_prefix_path = name_prefix_path.unwrap();
-
-            let last_slash = name_prefix_path
-                .match_indices('/')
-                .collect::<Vec<(usize, &str)>>()
-                .last()
-                .unwrap()
-                .0;
-
-            result.push(format!(
-                "{}_{}",
-                &name_prefix_path[last_slash + 1..],
-                file_name
-            ));
-        }
-
-        result
+pub mod back_logic {
+    use anyhow::Result;
+    use std::{
+        fs::{read_dir, DirEntry},
+        path::{Path, PathBuf},
+        process::Command,
     };
 
-    Ok(possible_names)
-}
+    pub fn get_possible_file_names(file_name: &str) -> Result<Vec<String>> {
+        let assignments_directory = Path::new("/Users/anshmendiratta/Desktop/assignments/");
+        let file_iter = read_dir(assignments_directory)?;
+        let folders: Vec<DirEntry> = file_iter
+            .filter_map(|f| {
+                let file = f.ok()?;
+                let file_metadata = file.metadata().ok()?;
+                if file_metadata.is_dir() {
+                    Some(file)
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-pub fn rename_file_in_dir(
-    directory_of_file: PathBuf,
-    file_to_rename: String,
-    new_file_name: String,
-) -> Result<()> {
-    let directory_of_file = directory_of_file.as_os_str().to_str();
-    let file_to_rename_path = format!("{}/{}", directory_of_file, file_to_rename);
-    let new_file_path = format!("{}/{}", directory_of_file, new_file_name);
+        let possible_names: Vec<String> = folders
+            .iter()
+            .map(|folder| {
+                let name_prefix = folder
+                    .path()
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap_or_default()
+                    .to_owned();
+                format!("{}_{}", name_prefix, file_name)
+            })
+            .collect();
 
-    let cmd_output = Command::new("mv")
-        .args([file_to_rename_path, new_file_path])
-        .status()
-        .expect("io: Failed to rename file");
+        Ok(possible_names)
+    }
 
-    if cmd_output.success() {
-        println!("\x1b[1;33mSuccessfully renamed \x1b[0m{file_to_rename}\x1b[1;33m to \x1b[0m{new_file_name}");
+    pub fn rename_file_in_dir(
+        directory_of_file: PathBuf,
+        file_to_rename: String,
+        new_file_name: String,
+    ) -> std::io::Result<()> {
+        let directory_of_file = directory_of_file.as_os_str().to_str().unwrap_or_default();
+        let file_to_rename_path = format!("{}/{}", directory_of_file, file_to_rename);
+        let new_file_path = format!("{}/{}", directory_of_file, new_file_name);
+
+        let cmd_output = Command::new("mv")
+            .args([file_to_rename_path, new_file_path])
+            .status()?;
+
+        if cmd_output.success() {
+            println!("\x1b[1;33mSuccessfully renamed \x1b[0m{file_to_rename}\x1b[1;33m to \x1b[0m{new_file_name}");
+            return Ok(());
+        }
+
+        eprintln!("\x1b[1;31mCould not rename file with error: {cmd_output}\x1b[0m");
         Ok(())
-    } else {
-        panic!("\x1b[1;31mCould not rename file with error: {cmd_output}\x1b[0m")
     }
 }
 
@@ -73,7 +65,7 @@ pub fn rename_file_in_dir(
 mod tests {
     use std::{fs::File, path::PathBuf};
 
-    use super::{get_possible_file_names, rename_file_in_dir};
+    use super::back_logic::{get_possible_file_names, rename_file_in_dir};
 
     #[test]
     fn check_prefixes() {

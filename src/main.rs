@@ -1,9 +1,10 @@
+use std::path::PathBuf;
+
 use anyhow::Result;
 use app::App;
-use ratatui::{
-    prelude::{CrosstermBackend, Terminal},
-    widgets::List,
-};
+use itertools::Itertools;
+use ratatui::prelude::{CrosstermBackend, Terminal};
+use renamefile_tui::back_logic::get_possible_file_names;
 
 mod app;
 
@@ -11,11 +12,17 @@ fn main() -> Result<()> {
     terminal_commands::startup()?;
 
     let terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
-    let appstate_items: Vec<&str> = Vec::from(["list1", "list2", "list3"]);
-    let appstate = &mut App::default();
-    appstate.items = List::new(appstate_items);
+    let provided_file_name = PathBuf::from(&std::env::args().collect_vec()[1])
+        .file_name()
+        .unwrap_or_default()
+        .to_str()
+        .unwrap_or_default()
+        .to_owned();
+    let appstate_items: Vec<String> =
+        get_possible_file_names(&provided_file_name).unwrap_or_default();
 
-    appstate.run(terminal)?;
+    let app_state = &mut App::with_items(appstate_items);
+    app_state.run(terminal)?;
 
     terminal_commands::shutdown()
 }
