@@ -7,7 +7,7 @@ pub mod back_logic {
     };
 
     pub fn get_possible_file_names(file_name: &str) -> Result<Vec<String>> {
-        let assignments_directory = Path::new("/Users/anshmendiratta/Desktop/assignments/");
+        let assignments_directory = Path::new("/home/mintdesktop/Desktop/assignments/");
         let file_iter = read_dir(assignments_directory)?;
         let folders: Vec<DirEntry> = file_iter
             .filter_map(|f| {
@@ -23,15 +23,15 @@ pub mod back_logic {
 
         let possible_names: Vec<String> = folders
             .iter()
-            .map(|folder| {
-                let name_prefix = folder
-                    .path()
+            .map(move |folder| {
+                let folder_path = folder.path().clone();
+                let name_prefix = folder_path
                     .file_name()
                     .unwrap_or_default()
                     .to_str()
-                    .unwrap_or_default()
-                    .to_owned();
-                format!("{}_{}", name_prefix, file_name)
+                    .unwrap_or_default();
+                let joined_string = [name_prefix, file_name].join("_").clone();
+                joined_string
             })
             .collect();
 

@@ -1,10 +1,12 @@
+use std::hash::Hash;
 use std::path::PathBuf;
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode};
 use itertools::Itertools;
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Borders, HighlightSpacing, StatefulWidget};
+use ratatui::text::{Line, ToText};
+use ratatui::widgets::{Block, Borders, HighlightSpacing};
 use ratatui::Frame;
 use ratatui::{
     backend::Backend,
@@ -12,29 +14,32 @@ use ratatui::{
     Terminal,
 };
 use ratatui::{
-    layout::{Constraint, Direction, Flex, Layout},
+    layout::{Constraint, Layout},
     prelude::{Buffer, Rect},
     widgets::List,
 };
 use renamefile_tui::back_logic::rename_file_in_dir;
 
 #[derive(Default)]
-pub struct App {
+pub struct App<'a> {
     state: ListState,
+    list: List<'a>,
     names: Vec<String>,
 }
 
-impl App {
+impl<'a> App<'a> {
     pub fn with_items(items: impl IntoIterator<Item = String> + Clone) -> Self {
+        let list = List::default().items(items.clone());
         Self {
             state: ListState::default(),
+            list,
             names: items.into_iter().collect(),
         }
     }
 
-    pub fn run(&mut self, mut terminal: Terminal<impl Backend>) -> Result<()> {
+    pub fn run_app(&mut self, mut terminal: Terminal<impl Backend>) -> Result<()> {
         loop {
-            self.draw(&mut terminal)?;
+            self.run(&mut terminal)?;
 
             if let Event::Key(key) = event::read()? {
                 match key.code {
@@ -53,9 +58,31 @@ impl App {
         Ok(())
     }
 
-    fn draw(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
-        terminal.draw(|f| f.render_widget(self, f.size()))?;
+    #[allow(dead_code)]
+    fn get_state(&self) -> ListState {
+        self.state.clone()
+    }
+
+    #[allow(dead_code)]
+    fn get_items(&self) -> Vec<String> {
+        self.names.clone()
+    }
+
+    #[allow(dead_code)]
+    fn get_list(&self) -> List<'a> {
+        self.list.clone()
+    }
+
+    fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+        terminal.draw(|f| {
+            self.draw(f);
+        })?;
         Ok(())
+    }
+
+    fn draw(&mut self, frame: &mut Frame) {
+        self.render_title(frame.area(), frame.buffer_mut());
+        self.render_list(frame);
     }
 
     fn render_title(&self, area: Rect, buf: &mut Buffer) {
@@ -66,18 +93,17 @@ impl App {
             .render(area, buf);
     }
 
-    fn render_list(&self, area: Rect, buf: &mut Buffer) {
-        let layout_vertical = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(Constraint::from_fills([1, 1, 1]))
-            .flex(Flex::Center)
-            .split(Rect::new(1, 1, 1));
-        let layout_horizontal = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(Constraint::from_fills([1, 1, 1]))
-            .flex(Flex::Center)
-            .split(layout_vertical[1]);
+    fn render_list(&mut self, frame: &mut Frame) {
+        let num_items = self.names.len();
+        let mut names_copy = self.get_items().clone();
+        names_copy.sort_by(|a, b| b.len().cmp(&a.len()));
 
+        let [area] = Layout::horizontal(Constraint::from_lengths([names_copy[0].len() as u16]))
+            .flex(ratatui::layout::Flex::Center)
+            .areas(frame.area());
+        let [area] = Layout::vertical(Constraint::from_lengths([self.get_items().len() as u16]))
+            .flex(ratatui::layout::Flex::Center)
+            .areas(area);
         let list = List::new(self.names.clone())
             .highlight_style(Style::new().green())
             .highlight_symbol("> ")
@@ -85,7 +111,7 @@ impl App {
             .slow_blink()
             .not_bold();
 
-        StatefulWidget::render(list, area_horiz, buf, &mut self.state.clone());
+        frame.render_stateful_widget(self.get_list(), area, &mut self.state);
     }
 
     fn next(&mut self) {
@@ -110,23 +136,6 @@ impl App {
         )?;
 
         Ok(())
-    }
-
-    #[allow(dead_code)]
-    fn get_state(&self) -> ListState {
-        self.state.clone()
-    }
-
-    #[allow(dead_code)]
-    fn get_items(&self) -> Vec<String> {
-        self.names.clone()
-    }
-}
-
-impl Widget for &mut App {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
-        self.render_title(area, buf);
-        self.render_list(area, buf);
     }
 }
 

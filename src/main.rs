@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -15,14 +17,15 @@ fn main() -> Result<()> {
     let provided_file_name = PathBuf::from(&std::env::args().collect_vec()[1])
         .file_name()
         .unwrap_or_default()
-        .to_str()
-        .unwrap_or_default()
-        .to_owned();
+        .to_os_string()
+        .into_string()
+        .unwrap_or_default();
+    assert!(provided_file_name.len() != 0);
     let appstate_items: Vec<String> =
         get_possible_file_names(&provided_file_name).unwrap_or_default();
 
     let app_state = &mut App::with_items(appstate_items);
-    app_state.run(terminal)?;
+    app_state.run_app(terminal)?;
 
     terminal_commands::shutdown()
 }
@@ -37,7 +40,7 @@ mod terminal_commands {
     }
 
     pub fn shutdown() -> Result<()> {
-        crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen)?;
+        crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
         crossterm::terminal::disable_raw_mode()?;
         Ok(())
     }
