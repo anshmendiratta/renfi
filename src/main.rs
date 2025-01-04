@@ -2,10 +2,7 @@ use anyhow::Result;
 use app::App;
 use itertools::Itertools;
 use ratatui::prelude::{CrosstermBackend, Terminal};
-use std::{
-    fs::read_dir,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use renamefile_tui::back_logic::get_possible_file_names;
 
@@ -35,6 +32,7 @@ fn main() -> Result<()> {
             .unwrap_or_default();
 
     let app_state = &mut App::with_items(appstate_items);
+    // `mv_cmd_output` is propagated up from `rename_file_in_dir` -> `App::rename_file` -> `App::run_app` using Results, even when the output is not an error.
     let mv_cmd_output = app_state.run_app(terminal)?;
 
     terminal_commands::shutdown()?;
@@ -54,7 +52,7 @@ mod terminal_commands {
     }
 
     pub fn shutdown() -> Result<()> {
-        crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
+        crossterm::execute!(std::io::stderr(), crossterm::terminal::LeaveAlternateScreen)?;
         crossterm::terminal::disable_raw_mode()?;
         Ok(())
     }

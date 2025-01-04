@@ -68,16 +68,13 @@ impl App {
     }
 
     fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
+        terminal.clear()?;
         terminal.draw(|f| {
-            self.draw(f);
+            let mut buf = f.buffer_mut().clone();
+            self.render_title(f, &mut buf);
+            self.render_list(f);
         })?;
         Ok(())
-    }
-
-    fn draw(&mut self, frame: &mut Frame) {
-        let mut buf = frame.buffer_mut().clone();
-        self.render_title(frame, &mut buf);
-        self.render_list(frame);
     }
 
     fn render_title(&self, frame: &mut Frame, buf: &mut Buffer) {
@@ -93,8 +90,9 @@ impl App {
         Widget::render(title, centered_top_layout, buf);
     }
 
-    const SELECTED_STYLE: Style = Style::new().fg(Color::Black).bg(Color::White);
     fn render_list(&mut self, frame: &mut Frame) {
+        const SELECTED_STYLE: Style = Style::new().fg(Color::Black).bg(Color::White);
+
         let mut names_copy = self.get_items().clone();
         // Sort by string length, and store in reverse.
         names_copy.sort_by(|a, b| b.len().cmp(&a.len()));
@@ -104,17 +102,20 @@ impl App {
             .flex(ratatui::layout::Flex::Center)
             .areas(frame.area());
         let [area] = Layout::vertical(Constraint::from_lengths([
-            self.get_items().len() as u16 + 2_16
+            self.get_items().len() as u16 + 1_u16
         ]))
         .flex(ratatui::layout::Flex::Center)
         .spacing(2)
         .areas(area);
         let list = List::new(self.names.clone())
             .highlight_spacing(HighlightSpacing::Always)
-            .highlight_style(Self::SELECTED_STYLE)
+            .highlight_style(SELECTED_STYLE)
             .highlight_spacing(HighlightSpacing::WhenSelected)
-            .block(Block::default().title("List of names"));
+            .block(
+                Block::default().title("List of names"), // .padding(Padding::new(10, 10, 10, 10)),
+            );
 
+        frame.render_widget(Block::new().bg(Color::Black), frame.area()); // Clearing the background to black.
         frame.render_stateful_widget(list, area, &mut self.state);
     }
 
