@@ -107,6 +107,7 @@ impl App {
         .flex(ratatui::layout::Flex::Center)
         .spacing(2)
         .areas(area);
+
         let list = List::new(self.names.clone())
             .highlight_spacing(HighlightSpacing::Always)
             .highlight_style(SELECTED_STYLE)
