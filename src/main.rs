@@ -1,11 +1,9 @@
-#![allow(unused_variables)]
-
-use std::path::PathBuf;
-
 use anyhow::Result;
 use app::App;
 use itertools::Itertools;
 use ratatui::prelude::{CrosstermBackend, Terminal};
+use std::path::PathBuf;
+
 use renamefile_tui::back_logic::get_possible_file_names;
 
 mod app;
@@ -25,9 +23,12 @@ fn main() -> Result<()> {
         get_possible_file_names(&provided_file_name).unwrap_or_default();
 
     let app_state = &mut App::with_items(appstate_items);
-    app_state.run_app(terminal)?;
+    let mv_cmd_output = app_state.run_app(terminal)?;
 
-    terminal_commands::shutdown()
+    terminal_commands::shutdown()?;
+    println!("{}", mv_cmd_output);
+
+    Ok(())
 }
 
 mod terminal_commands {

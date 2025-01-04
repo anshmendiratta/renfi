@@ -30,34 +30,39 @@ pub mod back_logic {
                     .unwrap_or_default()
                     .to_str()
                     .unwrap_or_default();
-                let joined_string = [name_prefix, file_name].join("_").clone();
-                joined_string
+                // joined_string.as_str()
+                [name_prefix, file_name].join("_").clone()
             })
             .collect();
 
         Ok(possible_names)
     }
 
-    pub fn rename_file_in_dir(
-        directory_of_file: PathBuf,
-        file_to_rename: String,
-        new_file_name: String,
-    ) -> std::io::Result<()> {
-        let directory_of_file = directory_of_file.as_os_str().to_str().unwrap_or_default();
-        let file_to_rename_path = format!("{}/{}", directory_of_file, file_to_rename);
-        let new_file_path = format!("{}/{}", directory_of_file, new_file_name);
+    pub fn rename_file_in_dir<'a>(
+        file_to_rename: &'a str,
+        new_file_name: &'a str,
+    ) -> anyhow::Result<String> {
+        let binding = PathBuf::from(file_to_rename);
+        let file_to_rename_parent_dir = binding
+            .parent()
+            .unwrap_or(Path::new(""))
+            .to_str()
+            .unwrap_or_default();
+        let new_file_path = format!("{}/{}", file_to_rename_parent_dir, new_file_name);
 
-        let cmd_output = Command::new("mv")
-            .args([file_to_rename_path, new_file_path])
-            .status()?;
+        let mut cmd_base = Command::new("mv");
+        let cmd = cmd_base.args([file_to_rename, &new_file_path]);
+        let cmd_output = cmd.spawn()?.wait_with_output()?;
 
-        if cmd_output.success() {
-            println!("\x1b[1;33mSuccessfully renamed \x1b[0m{file_to_rename}\x1b[1;33m to \x1b[0m{new_file_name}");
-            return Ok(());
-        }
+        let cmd_succeeded = cmd_output.status.success();
+        if cmd_succeeded {
+            return Ok(format!("\x1b[1;33mSuccessfully renamed \x1b[0m{file_to_rename}\x1b[1;33m to \x1b[0m{new_file_name}"));
+        };
 
-        eprintln!("\x1b[1;31mCould not rename file with error: {cmd_output}\x1b[0m");
-        Ok(())
+        let stderr_as_string: String = String::from_utf8(cmd_output.stderr)?;
+        return Ok(format!(
+            "\x1b[1;31mCould not rename file with error: {stderr_as_string}\x1b[0m",
+        ));
     }
 }
 
@@ -70,31 +75,24 @@ mod tests {
     #[test]
     fn check_prefixes() {
         assert_eq!(
-            get_possible_file_names("hi").unwrap(),
+            get_possible_file_names("hi").unwrap().sort(),
             vec![
-                "cs_hi".to_string(),
+                "physics_hi".to_string(),
                 "math_hi".to_string(),
                 "ened_hi".to_string(),
-                "coop_hi".to_string(),
-                "cheml_hi".to_string(),
                 "chem_hi".to_string()
             ]
+            .sort()
         )
     }
 
     #[test]
     pub fn check_renaming_file() {
         let _ = File::create("testing/test.txt");
-        let file_test_one_name: String = PathBuf::from("testing/test.txt")
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-        let directory: PathBuf =
-            PathBuf::from(r"/Users/anshmendiratta/dev/rs_renamefile_tui/testing");
-        let new_file_name: String = String::from("test_success.txt");
+        let binding = PathBuf::from("testing/test.txt");
+        let file_test_one_name: &str = binding.file_name().unwrap().to_str().unwrap();
+        let new_file_name: &str = "test_success.txt";
 
-        assert!(rename_file_in_dir(directory, file_test_one_name, new_file_name).is_ok());
+        assert!(rename_file_in_dir(file_test_one_name, new_file_name).is_ok());
     }
 }

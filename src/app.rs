@@ -1,61 +1,64 @@
-use std::hash::Hash;
-use std::path::PathBuf;
-
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode};
 use itertools::Itertools;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, ToText};
-use ratatui::widgets::{Block, Borders, HighlightSpacing};
+use ratatui::layout::Flex;
+use ratatui::style::{Color, Style, Stylize};
+use ratatui::text::Text;
+use ratatui::widgets::{Block, HighlightSpacing};
 use ratatui::Frame;
 use ratatui::{
     backend::Backend,
-    widgets::{ListState, Paragraph, Widget},
+    widgets::{ListState, Widget},
     Terminal,
 };
 use ratatui::{
     layout::{Constraint, Layout},
-    prelude::{Buffer, Rect},
+    prelude::Buffer,
     widgets::List,
 };
 use renamefile_tui::back_logic::rename_file_in_dir;
 
 #[derive(Default)]
-pub struct App<'a> {
+pub struct App {
     state: ListState,
-    list: List<'a>,
+    // list: List<'a>,
     names: Vec<String>,
 }
 
-impl<'a> App<'a> {
+const SELECTED_STYLE: Style = Style::new().fg(Color::Black).bg(Color::White);
+
+impl App {
     pub fn with_items(items: impl IntoIterator<Item = String> + Clone) -> Self {
-        let list = List::default().items(items.clone());
+        // let list = List::default()
+        //     .items(items.clone())
+        // .highlight_style(SELECTED_STYLE);
         Self {
             state: ListState::default(),
-            list,
+            // list,
             names: items.into_iter().collect(),
         }
     }
 
-    pub fn run_app(&mut self, mut terminal: Terminal<impl Backend>) -> Result<()> {
+    pub fn run_app(&mut self, mut terminal: Terminal<impl Backend>) -> anyhow::Result<String> {
         loop {
             self.run(&mut terminal)?;
 
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Esc => break,
+                    KeyCode::Esc | KeyCode::Char('q') => std::process::exit(0),
                     KeyCode::Up => self.previous(),
                     KeyCode::Down => self.next(),
                     KeyCode::Enter => {
-                        let file_to_rename: &str = &std::env::args().collect_vec()[1];
-                        self.rename_file(file_to_rename)?
+                        let args_vec = std::env::args().collect_vec();
+                        let file_to_rename: &str = &args_vec[1];
+                        let mv_cmd_output = self.rename_file(file_to_rename)?;
+
+                        return Ok(mv_cmd_output.to_owned());
                     }
                     _ => {}
                 }
             }
         }
-
-        Ok(())
     }
 
     #[allow(dead_code)]
@@ -68,11 +71,6 @@ impl<'a> App<'a> {
         self.names.clone()
     }
 
-    #[allow(dead_code)]
-    fn get_list(&self) -> List<'a> {
-        self.list.clone()
-    }
-
     fn run(&mut self, terminal: &mut Terminal<impl Backend>) -> Result<()> {
         terminal.draw(|f| {
             self.draw(f);
@@ -81,37 +79,46 @@ impl<'a> App<'a> {
     }
 
     fn draw(&mut self, frame: &mut Frame) {
-        self.render_title(frame.area(), frame.buffer_mut());
+        let mut buf = frame.buffer_mut().clone();
+        self.render_title(frame, &mut buf);
         self.render_list(frame);
     }
 
-    fn render_title(&self, area: Rect, buf: &mut Buffer) {
-        Paragraph::default()
+    fn render_title(&self, frame: &mut Frame, buf: &mut Buffer) {
+        let title = Text::raw("Pick a title to rename the file")
             .centered()
-            .bold()
-            .block(Block::default().title("Rename file").borders(Borders::ALL))
-            .render(area, buf);
+            .bold();
+        let [centered_top_layout] =
+            Layout::horizontal(Constraint::from_lengths([title.width() as u16]))
+                .flex(Flex::Center)
+                // .vertical_margin(20)
+                .areas(frame.area());
+
+        Widget::render(title, centered_top_layout, buf);
     }
 
     fn render_list(&mut self, frame: &mut Frame) {
-        let num_items = self.names.len();
         let mut names_copy = self.get_items().clone();
+        // Sort by string length, and store in reverse.
         names_copy.sort_by(|a, b| b.len().cmp(&a.len()));
 
+        // `names_copy[0]` is the longest string.
         let [area] = Layout::horizontal(Constraint::from_lengths([names_copy[0].len() as u16]))
             .flex(ratatui::layout::Flex::Center)
             .areas(frame.area());
-        let [area] = Layout::vertical(Constraint::from_lengths([self.get_items().len() as u16]))
-            .flex(ratatui::layout::Flex::Center)
-            .areas(area);
+        let [area] = Layout::vertical(Constraint::from_lengths([
+            self.get_items().len() as u16 + 2_16
+        ]))
+        .flex(ratatui::layout::Flex::Center)
+        .spacing(2)
+        .areas(area);
         let list = List::new(self.names.clone())
-            .highlight_style(Style::new().green())
-            .highlight_symbol("> ")
+            .highlight_spacing(HighlightSpacing::Always)
+            .highlight_style(SELECTED_STYLE)
             .highlight_spacing(HighlightSpacing::WhenSelected)
-            .slow_blink()
-            .not_bold();
+            .block(Block::default().title("List of names"));
 
-        frame.render_stateful_widget(self.get_list(), area, &mut self.state);
+        frame.render_stateful_widget(list, area, &mut self.state);
     }
 
     fn next(&mut self) {
@@ -124,18 +131,12 @@ impl<'a> App<'a> {
         self.state.select(Some(new_selection));
     }
 
-    fn rename_file(&self, file_to_rename: &str) -> Result<()> {
+    fn rename_file<'a>(&'a self, file_to_rename: &'a str) -> Result<String> {
         let chosen_option_idx: usize = self.state.selected().unwrap_or(0);
         let chosen_file_name: &str = &self.names[chosen_option_idx];
-        let directory_called_in: &str = &std::env::args().collect_vec()[0];
+        let mv_cmd_output = rename_file_in_dir(file_to_rename, chosen_file_name)?;
 
-        rename_file_in_dir(
-            PathBuf::from(directory_called_in),
-            file_to_rename.to_string(),
-            chosen_file_name.to_string(),
-        )?;
-
-        Ok(())
+        Ok(mv_cmd_output)
     }
 }
 
