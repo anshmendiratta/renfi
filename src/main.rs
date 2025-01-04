@@ -2,14 +2,24 @@ use anyhow::Result;
 use app::App;
 use itertools::Itertools;
 use ratatui::prelude::{CrosstermBackend, Terminal};
-use std::path::{Path, PathBuf};
+use std::{
+    fs::read_dir,
+    path::{Path, PathBuf},
+};
 
 use renamefile_tui::back_logic::get_possible_file_names;
 
 mod app;
 
 fn main() -> Result<()> {
-    let assignments_dir_env = std::env::var("ASSIGNMENTS_DIR").unwrap_or(String::new());
+    let assignments_dir_env = match std::env::var("ASSIGNMENTS_DIR") {
+        Err(std::env::VarError::NotPresent) => {
+            panic!("err: Environment variable ASSIGNMENTS_DIR not set")
+        }
+        Ok(dir) => dir,
+        _ => String::new(),
+    };
+
     terminal_commands::startup()?;
 
     let terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
@@ -28,6 +38,7 @@ fn main() -> Result<()> {
     let mv_cmd_output = app_state.run_app(terminal)?;
 
     terminal_commands::shutdown()?;
+
     println!("{}", mv_cmd_output);
 
     Ok(())

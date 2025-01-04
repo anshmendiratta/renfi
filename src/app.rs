@@ -21,21 +21,17 @@ use renamefile_tui::back_logic::rename_file_in_dir;
 #[derive(Default)]
 pub struct App {
     state: ListState,
-    // list: List<'a>,
     names: Vec<String>,
 }
 
-const SELECTED_STYLE: Style = Style::new().fg(Color::Black).bg(Color::White);
-
 impl App {
     pub fn with_items(items: impl IntoIterator<Item = String> + Clone) -> Self {
-        // let list = List::default()
-        //     .items(items.clone())
-        // .highlight_style(SELECTED_STYLE);
+        let items: Vec<String> = items.into_iter().collect();
+        assert!(items.len() > 0);
+
         Self {
             state: ListState::default(),
-            // list,
-            names: items.into_iter().collect(),
+            names: items,
         }
     }
 
@@ -97,6 +93,7 @@ impl App {
         Widget::render(title, centered_top_layout, buf);
     }
 
+    const SELECTED_STYLE: Style = Style::new().fg(Color::Black).bg(Color::White);
     fn render_list(&mut self, frame: &mut Frame) {
         let mut names_copy = self.get_items().clone();
         // Sort by string length, and store in reverse.
@@ -114,7 +111,7 @@ impl App {
         .areas(area);
         let list = List::new(self.names.clone())
             .highlight_spacing(HighlightSpacing::Always)
-            .highlight_style(SELECTED_STYLE)
+            .highlight_style(Self::SELECTED_STYLE)
             .highlight_spacing(HighlightSpacing::WhenSelected)
             .block(Block::default().title("List of names"));
 
