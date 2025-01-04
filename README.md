@@ -12,6 +12,8 @@ E.g., `cargo r -- college/exam_3.pdf` with the assignments folder (e.g., `colleg
 
 and store the resulting file in `college/`.
 
+Of course, for easier use, store the resulting binary in a folder included in `$PATH`. This does mean that you would need to recompile the binary every time there is a push to the repo, but if it already works, this is far more convenient to have than needing to be in your clone of the repo.
+
 ## Compatibility
 Aside from varying file systems on different operating systems, none of the internals of the script should be OS-specific. If you do find a bug, please open an issue/PR.
 
