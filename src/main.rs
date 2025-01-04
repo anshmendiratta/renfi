@@ -9,7 +9,7 @@ use renamefile_tui::back_logic::get_possible_file_names;
 mod app;
 
 fn main() -> Result<()> {
-    let assignments_dir_env = std::env::var("ASSIGNMENTS_DIR").unwrap_or_default();
+    let assignments_dir_env = std::env::var("ASSIGNMENTS_DIR").unwrap_or(String::new());
     terminal_commands::startup()?;
 
     let terminal = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
