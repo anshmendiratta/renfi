@@ -6,8 +6,10 @@ pub mod back_logic {
         process::Command,
     };
 
-    pub fn get_possible_file_names(file_name: &str) -> Result<Vec<String>> {
-        let assignments_directory = Path::new("/home/mintdesktop/Desktop/assignments/");
+    pub fn get_possible_file_names(
+        assignments_directory: &Path,
+        file_name: &str,
+    ) -> Result<Vec<String>> {
         let file_iter = read_dir(assignments_directory)?;
         let folders: Vec<DirEntry> = file_iter
             .filter_map(|f| {
@@ -68,14 +70,20 @@ pub mod back_logic {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, path::PathBuf};
+    use std::{
+        fs::File,
+        path::{Path, PathBuf},
+    };
 
     use super::back_logic::{get_possible_file_names, rename_file_in_dir};
 
     #[test]
     fn check_prefixes() {
+        let assignments_dir: &Path = Path::new("/home/mintdesktop/Desktop/assignments/");
         assert_eq!(
-            get_possible_file_names("hi").unwrap().sort(),
+            get_possible_file_names(assignments_dir, "hi")
+                .unwrap()
+                .sort(),
             vec![
                 "physics_hi".to_string(),
                 "math_hi".to_string(),
