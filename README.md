@@ -8,7 +8,8 @@ Once set, to use the TUI, run `cargo r -- {file}` where {file} is what you wish 
 E.g., `cargo r -- college/exam_3.pdf` with the assignments folder (e.g., `college/`) containing folders named `math/`, `chem/`, and `psych/` would give you to the options: 
 - `math_exam_3.pdf`
 - `chem_exam_3.pdf`
-- `psych_exam_3.pdf`
+- `psych_exam_3.pdf` 
+
 and store the resulting file in `college/`.
 
 ## Compatibility
