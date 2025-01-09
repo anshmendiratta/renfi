@@ -1,4 +1,4 @@
-# renamefile_tui
+# renfi
 A personal project to avoid manually renaming files. Used in tandem with [autosort](github.com/anshmendiratta/autosortassignments).
 
 ## Usage
